@@ -31,7 +31,7 @@ import java.util.Set;
 
 @Route(value = "settings/roles", layout = MainLayout.class)
 @PageTitle("Rôles & Permissions | Sahty EMR")
-@RolesAllowed({"TENANT_SUPERADMIN"})
+@RolesAllowed({"ROLE_TENANT_SUPERADMIN", "ROLE_SUPER_ADMIN"})
 public class SettingsRolesView extends VerticalLayout {
 
     private static final List<String> ALL_PERMISSIONS = List.of(
@@ -160,10 +160,7 @@ public class SettingsRolesView extends VerticalLayout {
             role.setName(nameField.getValue());
             role.setDescription(descField.getValue());
             role.setPermissions((Set<String>) permissionsGroup.getValue());
-            // Set tenant from current context
-            SecurityUtils.getCurrentTenantId().ifPresent(tid -> {
-                // tenant is set via the repository directly for simplicity
-            });
+            role.setTenantId(tenantId);
             roleRepository.save(role);
             dialog.close();
             refreshGrid();

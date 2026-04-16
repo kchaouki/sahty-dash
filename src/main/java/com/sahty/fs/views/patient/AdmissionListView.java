@@ -1,25 +1,37 @@
 package com.sahty.fs.views.patient;
 
 import com.sahty.fs.entity.Admission;
+import com.sahty.fs.entity.HospitalService;
+import com.sahty.fs.entity.Patient;
 import com.sahty.fs.security.SecurityUtils;
 import com.sahty.fs.service.AdmissionService;
+import com.sahty.fs.service.HospitalServiceService;
+import com.sahty.fs.service.PatientService;
 import com.sahty.fs.views.MainLayout;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
+import com.vaadin.flow.component.datetimepicker.DateTimePicker;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.GridVariant;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import jakarta.annotation.security.PermitAll;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Route(value = "admissions", layout = MainLayout.class)
 @PageTitle("Admissions | Sahty EMR")
@@ -27,12 +39,18 @@ import java.time.format.DateTimeFormatter;
 public class AdmissionListView extends VerticalLayout {
 
     private final AdmissionService admissionService;
+    private final PatientService patientService;
+    private final HospitalServiceService hospitalServiceService;
     private final Grid<Admission> grid;
     private final ComboBox<Admission.AdmissionStatus> statusFilter;
     private String tenantId;
 
-    public AdmissionListView(AdmissionService admissionService) {
+    public AdmissionListView(AdmissionService admissionService,
+                              PatientService patientService,
+                              HospitalServiceService hospitalServiceService) {
         this.admissionService = admissionService;
+        this.patientService = patientService;
+        this.hospitalServiceService = hospitalServiceService;
         this.tenantId = SecurityUtils.getCurrentTenantId().orElse("");
 
         setSizeFull();
@@ -51,10 +69,16 @@ public class AdmissionListView extends VerticalLayout {
         statusFilter.setValue(Admission.AdmissionStatus.EN_COURS);
         statusFilter.addValueChangeListener(e -> refreshGrid());
 
-        Button refreshBtn = new Button("Actualiser", VaadinIcon.REFRESH.create());
+        Button newBtn = new Button("Nouvelle Admission", VaadinIcon.PLUS.create());
+        newBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        newBtn.addClickListener(e -> openAdmissionDialog());
+
+        Button refreshBtn = new Button(VaadinIcon.REFRESH.create());
+        refreshBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         refreshBtn.addClickListener(e -> refreshGrid());
 
-        HorizontalLayout toolbar = new HorizontalLayout(statusFilter, refreshBtn);
+        HorizontalLayout toolbar = new HorizontalLayout(newBtn, statusFilter, refreshBtn);
+        toolbar.setDefaultVerticalComponentAlignment(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.END);
 
         grid = createGrid();
         grid.setSizeFull();
@@ -106,10 +130,107 @@ public class AdmissionListView extends VerticalLayout {
 
     private void refreshGrid() {
         Admission.AdmissionStatus status = statusFilter.getValue();
-        if (status == Admission.AdmissionStatus.EN_COURS) {
+        if (status == null || status == Admission.AdmissionStatus.EN_COURS) {
             grid.setItems(admissionService.findActiveAdmissions(tenantId));
         } else {
-            grid.setItems(admissionService.findAdmissions(tenantId, status, 0, 100).getContent());
+            grid.setItems(admissionService.findAdmissions(tenantId, status, 0, 200).getContent());
         }
+    }
+
+    private void openAdmissionDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Nouvelle Admission");
+        dialog.setWidth("700px");
+
+        // Patient search combo
+        ComboBox<Patient> patientBox = new ComboBox<>("Patient");
+        patientBox.setItemLabelGenerator(p -> p.getLastName() + " " + p.getFirstName()
+                + (p.getIpp() != null ? " [" + p.getIpp() + "]" : ""));
+        patientBox.setWidth("100%");
+        patientBox.setRequired(true);
+        patientBox.setItems(
+            query -> patientService.searchPatients(tenantId,
+                query.getFilter().orElse(""),
+                query.getOffset() / Math.max(query.getLimit(), 1),
+                query.getLimit()).stream()
+        );
+
+        // Service combo
+        ComboBox<HospitalService> serviceBox = new ComboBox<>("Service");
+        serviceBox.setItemLabelGenerator(HospitalService::getName);
+        serviceBox.setWidth("100%");
+        List<HospitalService> services = hospitalServiceService.findByTenant(tenantId);
+        serviceBox.setItems(services);
+
+        // Type combo
+        ComboBox<Admission.AdmissionType> typeBox = new ComboBox<>("Type d'Admission");
+        typeBox.setItems(Admission.AdmissionType.values());
+        typeBox.setItemLabelGenerator(t -> switch(t) {
+            case HOSPITALISATION -> "Hospitalisation";
+            case AMBULATOIRE -> "Ambulatoire";
+            case URGENCE -> "Urgence";
+            case CHIRURGIE -> "Chirurgie";
+        });
+        typeBox.setValue(Admission.AdmissionType.HOSPITALISATION);
+
+        // Arrival mode
+        ComboBox<Admission.ArrivalMode> arrivalBox = new ComboBox<>("Mode d'Arrivée");
+        arrivalBox.setItems(Admission.ArrivalMode.values());
+        arrivalBox.setItemLabelGenerator(a -> switch(a) {
+            case AMBULANCE -> "Ambulance";
+            case PERSONNEL -> "Personnelle";
+            case TRANSFERT -> "Transfert";
+            case SMUR -> "SMUR";
+        });
+
+        TextField doctorField = new TextField("Médecin Responsable");
+        TextField bedField = new TextField("Lit");
+        TextField reasonField = new TextField("Motif d'Admission");
+        DateTimePicker admissionDatePicker = new DateTimePicker("Date d'Admission");
+        admissionDatePicker.setValue(LocalDateTime.now());
+
+        FormLayout form = new FormLayout(patientBox, serviceBox, typeBox, arrivalBox,
+                doctorField, bedField, reasonField, admissionDatePicker);
+        form.setResponsiveSteps(
+                new FormLayout.ResponsiveStep("0", 1),
+                new FormLayout.ResponsiveStep("450px", 2));
+        form.setColspan(patientBox, 2);
+        form.setColspan(reasonField, 2);
+
+        Button cancelBtn = new Button("Annuler", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button saveBtn = new Button("Admettre", e -> {
+            if (patientBox.getValue() == null) {
+                Notification.show("Veuillez sélectionner un patient", 2000, Notification.Position.BOTTOM_END)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+                return;
+            }
+            try {
+                Admission admission = new Admission();
+                admission.setType(typeBox.getValue());
+                admission.setArrivalMode(arrivalBox.getValue());
+                admission.setDoctorName(doctorField.getValue());
+                admission.setBedLabel(bedField.getValue());
+                admission.setReason(reasonField.getValue());
+                admission.setAdmissionDate(admissionDatePicker.getValue());
+                if (serviceBox.getValue() != null) {
+                    admission.setService(serviceBox.getValue());
+                }
+                admissionService.createAdmission(admission, patientBox.getValue().getId(), tenantId);
+                dialog.close();
+                refreshGrid();
+                Notification.show("Admission créée avec succès", 3000, Notification.Position.BOTTOM_END)
+                        .addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            } catch (Exception ex) {
+                Notification.show("Erreur: " + ex.getMessage(), 5000, Notification.Position.BOTTOM_END)
+                        .addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        dialog.add(form);
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
     }
 }

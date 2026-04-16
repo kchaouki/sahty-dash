@@ -30,7 +30,7 @@ import java.util.List;
 
 @Route(value = "superadmin/groups", layout = MainLayout.class)
 @PageTitle("Groupes de Clients | Sahty EMR")
-@RolesAllowed({"SUPER_ADMIN"})
+@RolesAllowed("ROLE_SUPER_ADMIN")
 public class SuperAdminGroupsView extends VerticalLayout {
 
     private final TenantGroupRepository groupRepository;

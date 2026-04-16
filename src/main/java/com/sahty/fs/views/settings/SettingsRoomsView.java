@@ -34,7 +34,7 @@ import java.util.List;
 
 @Route(value = "settings/rooms", layout = MainLayout.class)
 @PageTitle("Chambres & Lits | Sahty EMR")
-@RolesAllowed({"TENANT_SUPERADMIN"})
+@RolesAllowed({"ROLE_TENANT_SUPERADMIN", "ROLE_SUPER_ADMIN"})
 public class SettingsRoomsView extends VerticalLayout {
 
     private final RoomRepository roomRepository;

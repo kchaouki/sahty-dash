@@ -30,7 +30,7 @@ import java.util.Set;
 
 @Route(value = "superadmin/roles", layout = MainLayout.class)
 @PageTitle("Rôles Globaux | Sahty EMR")
-@RolesAllowed({"SUPER_ADMIN"})
+@RolesAllowed("ROLE_SUPER_ADMIN")
 public class SuperAdminRolesView extends VerticalLayout {
 
     private static final List<String> ALL_PERMISSIONS = List.of(
@@ -110,7 +110,7 @@ public class SuperAdminRolesView extends VerticalLayout {
         }));
         g.setDetailsVisibleOnClick(true);
 
-        refreshGrid();
+        g.setItems(roleRepository.findGlobalRoles());
         return g;
     }
 
@@ -165,7 +165,6 @@ public class SuperAdminRolesView extends VerticalLayout {
     }
 
     private void refreshGrid() {
-        // Global roles have no tenant
-        grid.setItems(roleRepository.findByTenantId(null));
+        grid.setItems(roleRepository.findGlobalRoles());
     }
 }

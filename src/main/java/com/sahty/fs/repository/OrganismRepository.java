@@ -7,6 +7,6 @@ import java.util.List;
 
 @Repository
 public interface OrganismRepository extends JpaRepository<Organism, String> {
-    List<Organism> findByIsActiveTrue();
+    List<Organism> findByActiveTrue();
     List<Organism> findByType(String type);
 }

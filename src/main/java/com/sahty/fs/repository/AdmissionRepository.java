@@ -14,25 +14,47 @@ import java.util.Optional;
 @Repository
 public interface AdmissionRepository extends JpaRepository<Admission, String> {
 
-    List<Admission> findByPatientIdOrderByAdmissionDateDesc(String patientId);
+    @Query("""
+        SELECT a FROM Admission a
+        LEFT JOIN FETCH a.patient
+        LEFT JOIN FETCH a.service
+        WHERE a.patient.id = :patientId
+        ORDER BY a.admissionDate DESC
+        """)
+    List<Admission> findByPatientIdOrderByAdmissionDateDesc(@Param("patientId") String patientId);
 
     Optional<Admission> findByNda(String nda);
 
     @Query("""
         SELECT a FROM Admission a
-        JOIN FETCH a.patient p
+        LEFT JOIN FETCH a.patient
+        LEFT JOIN FETCH a.service
+        WHERE a.id = :id
+        """)
+    Optional<Admission> findByIdWithDetails(@Param("id") String id);
+
+    @Query("""
+        SELECT a FROM Admission a
+        LEFT JOIN FETCH a.patient
+        LEFT JOIN FETCH a.service
         WHERE a.tenant.id = :tenantId
         AND a.status = 'EN_COURS'
         ORDER BY a.admissionDate DESC
         """)
     List<Admission> findActiveByTenant(@Param("tenantId") String tenantId);
 
-    @Query("""
+    @Query(value = """
         SELECT a FROM Admission a
-        JOIN FETCH a.patient p
+        LEFT JOIN FETCH a.patient
+        LEFT JOIN FETCH a.service
         WHERE a.tenant.id = :tenantId
-        AND (:status IS NULL OR a.status = :status)
+        AND (:#{#status} IS NULL OR a.status = :status)
         ORDER BY a.admissionDate DESC
+        """,
+        countQuery = """
+        SELECT COUNT(a) FROM Admission a
+        WHERE a.tenant.id = :tenantId
+        AND (:#{#status} IS NULL OR a.status = :status)
         """)
     Page<Admission> findByTenantAndStatus(@Param("tenantId") String tenantId,
                                            @Param("status") Admission.AdmissionStatus status,

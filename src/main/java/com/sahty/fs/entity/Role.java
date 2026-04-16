@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "roles")
+@Table(name = "global_roles")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Role {
     @Id @GeneratedValue(strategy = GenerationType.UUID)
@@ -14,9 +14,13 @@ public class Role {
     @Column(nullable = false)
     private String name;
     private String description;
+    @Column(name = "tenant_id")
+    private String tenantId;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tenant_id")
+    @JoinColumn(name = "tenant_id", insertable = false, updatable = false)
     private Tenant tenant;
+    @Builder.Default
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "role_permissions", joinColumns = @JoinColumn(name = "role_id"))
     @Column(name = "permission")

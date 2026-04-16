@@ -40,7 +40,7 @@ public class AdmissionService {
     }
 
     public Optional<Admission> findById(String id) {
-        return admissionRepository.findById(id);
+        return admissionRepository.findByIdWithDetails(id);
     }
 
     public List<Admission> findByPatient(String patientId) {
