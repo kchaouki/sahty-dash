@@ -1,0 +1,12 @@
+package com.sahty.fs.repository;
+
+import com.sahty.fs.entity.HospitalService;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+
+@Repository
+public interface HospitalServiceRepository extends JpaRepository<HospitalService, String> {
+    List<HospitalService> findByTenantIdAndIsActiveTrue(String tenantId);
+    List<HospitalService> findByTenantId(String tenantId);
+}
